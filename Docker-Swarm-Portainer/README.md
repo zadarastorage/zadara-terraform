@@ -15,6 +15,7 @@ After you have adjust the variable.tf file you must run the following command
 - terraform init
 - terraform plan
 - terraform apply
+Now the customer can reach the portioner guide via http://manager-ip:9000
 
 ## Details
 - connect.tf define the general connection to the defined zCloud environment.
@@ -27,5 +28,3 @@ After you have adjust the variable.tf file you must run the following command
 - under roles are the ansible scripts to create the swarm cluster and install portainer
 - inventory is the ansible inventory
 - templates define how the ips are stored in the inventory
-
-Now the customer can reach the portioner guide via http://manager-ip:9000
