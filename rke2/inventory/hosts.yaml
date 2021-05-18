@@ -1,7 +1,6 @@
 [rke2managers]
-rke2manager ansible_ssh_host=185.92.122.194
+rke2manager ansible_ssh_host=x.x.x.x
 
 [rke2workers]
-rke2worker-0 ansible_ssh_host=185.92.122.229
-rke2worker-1 ansible_ssh_host=185.92.122.181
-
+rke2worker-0 ansible_ssh_host=x.x.x.x
+rke2worker-1 ansible_ssh_host=x.x.x.x
