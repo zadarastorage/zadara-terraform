@@ -16,7 +16,7 @@ After you have adjust the variable.tf file you must run the following command
 - terraform plan
 - terraform apply
 
-###Now the customer can reach the portioner guide via http://manager-ip:9000
+Now the customer can reach the portioner guide via http://manager-ip:9000
 
 ## Details
 - connect.tf define the general connection to the defined zCloud environment.
