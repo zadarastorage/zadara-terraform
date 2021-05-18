@@ -1,0 +1,7 @@
+server: https://172.31.0.24:9345
+token: K1075673820a10956f096d07c0c6d096825d5515814d7d57757af1c065896ea01b2::server:6ec10c52278b08c3810407f4b5bbdd71
+{data-dir: /var/lib/rancher/rke2, etcd-image: 'public.ecr.aws/eks-distro/etcd-io/etcd:v3.4.14-eks-1-18-1',
+  kube-apiserver-image: 'public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.18.9-eks-1-18-1',
+  kube-controller-manager-image: 'public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.18.9-eks-1-18-1',
+  kube-scheduler-image: 'public.ecr.aws/eks-distro/kubernetes/kube-scheduler:v1.18.9-eks-1-18-1',
+  kubelet-path: /var/lib/rancher/rke2/opt/bin/kubelet, pause-image: 'public.ecr.aws/eks-distro/kubernetes/pause:v1.18.9-eks-1-18-1'}

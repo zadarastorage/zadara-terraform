@@ -1,0 +1,90 @@
+---
+- name: Installing rke2 manager
+  hosts: rke2managers
+  become: true
+  remote_user: ubuntu
+  tasks:
+
+  - name: Download RKE2
+    shell: curl -sfL https://get.rke2.io | sudo INSTALL_RKE2_VERSION=v1.18.12-beta1+rke2r2 sh -
+
+  - name: apt-get update
+    shell: sudo apt-get update
+
+  - name: apt upgrade
+    shell: sudo apt-get -y upgrade
+
+  - name: install iscsid
+    shell: apt-get install open-iscsi
+  - name: enable iscsid
+    shell: systemctl enable iscsid
+  - name: start iscsid
+    shell: systemctl start iscsid
+
+  - name: install helm
+    shell: snap install helm --classic
+
+  - name: Install Python3
+    shell: sudo apt-get install -y python3-venv python3-wheel python3-pip
+
+  - name: Git clone
+    shell: git clone https://github.com/rancher/rke2.git
+
+  - name: Git clone zadara-operator
+    shell: git clone https://github.com/zadarastorage/zadara-operator.git
+
+  - name: pip3 install
+    shell: pip3 install -r rke2/contrib/custom-image-kubelet/requirements.txt
+
+  - name: genconfig
+    shell: sudo /usr/bin/python3 /home/ubuntu/rke2/contrib/custom-image-kubelet/genconfig.py --release-url https://distro.eks.amazonaws.com/kubernetes-1-18/kubernetes-1-18-eks-1.yaml
+
+  - name: enable rke2-server
+    shell: sudo systemctl enable rke2-server
+
+  - name: start rke2-server
+    shell: sudo systemctl start rke2-server
+
+  - name: mkdir
+    shell: sleep 20
+
+  - name: mkdir
+    shell: mkdir /home/ubuntu/.kube/
+
+  - name: cp
+    shell: sudo cp /etc/rancher/rke2/rke2.yaml /home/ubuntu/.kube/config
+
+  - name: chown
+    shell: sudo chown ubuntu:ubuntu /home/ubuntu/.kube/config
+
+  - name: export
+    shell: echo 'export PATH=$PATH:/var/lib/rancher/rke2/bin:"${PATH}"' >>~/.bashrc
+
+  - name: install kubectl
+    shell: sudo snap install kubectl --classic
+
+  - name: read token
+    shell: sudo cat /var/lib/rancher/rke2/server/node-token
+    register: token_id
+
+  - name: enable rke2-server
+    shell: sudo touch /etc/rancher/rke2/config2.yaml
+
+  - name: write token
+    lineinfile:
+      path: /etc/rancher/rke2/config2.yaml
+      state: present
+      insertbefore: BOF
+      line: "token: {{token_id.stdout}}"
+
+  - name: write api ip
+    lineinfile:
+      path: /etc/rancher/rke2/config2.yaml
+      state: present
+      insertbefore: BOF
+      line: "server: https://{{managerip}}:9345"
+
+  - name: Fetch the file from the rke2-manager to master
+    fetch:
+      src: /etc/rancher/rke2/config2.yaml
+      dest: buffer/
