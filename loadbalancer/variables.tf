@@ -14,7 +14,7 @@ variable "servername" {
   default = "webserver-"
 }
 variable "keyname" {
-  default = "your ssh key name"
+  default = "your key"
 }
 variable "instance" {
   default = "z4.medium"
