@@ -4,7 +4,7 @@ provider "aws" {
     secret_key ="${var.secretkey}"
     #zCloud endpoints
     endpoints {
-        ec2 = "https://${var.zcloud_ip}/api/v2/ec2"
+        ec2 = "https://${var.zcloud_ip}/api/v2/aws/ec2"
         elb = "https://${var.zcloud_ip}/api/v2/aws/elb"
         }
     insecure = "true"
