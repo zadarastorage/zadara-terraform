@@ -1,0 +1,67 @@
+---
+- name: Installing k8s manager
+  hosts: k8smanagers
+  become: true
+  remote_user: ubuntu
+  tasks:
+
+    - name: apt-get update
+      shell: sudo apt-get update
+    - name: apt upgrade
+      shell: sudo apt-get -y upgrade
+    - name: add google package
+      shell: curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add
+    - name: add repository
+      apt_repository:
+        repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+        state: present      
+    - name: install packages
+      ansible.builtin.apt:
+        pkg:
+        - docker.io
+        - open-iscsi
+        - kubeadm
+        - kubelet
+        - kubectl
+    - name: enable docker
+      shell: systemctl enable docker
+    - name: start docker
+      shell: systemctl start docker
+    - name: enable iscsid
+      shell: systemctl enable iscsid
+    - name: start iscsid
+      shell: systemctl start iscsid
+    - name: install helm
+      shell: snap install helm --classic
+   
+
+    - name: create k8s cluster
+      shell: sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+    - name: create .kube directory 
+      shell: mkdir -p $HOME/.kube
+    - name: copy config to .kube
+      shell: sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+    - name: chown of cponfig in .kube
+      shell: sudo chown $(id -u):$(id -g) $HOME/.kube/config
+    - name: install flannel
+      shell: sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+
+    - name: Generating Join Command and Token...
+      command: kubeadm token create  --print-join-command
+      register: kubeadm_join
+
+
+    - name:  Join Kubernetes Node in Cluster with this command...
+      debug:
+       var: kubeadm_join.stdout
+
+
+    - name: Saving join Command...
+      copy:
+       content: "{{ kubeadm_join.stdout }}"
+       dest: joincmd.sh
+       mode: a+x
+      delegate_to: "{{item}}"
+      with_items:
+      - k8sworker-0
+      - k8sworker-1    

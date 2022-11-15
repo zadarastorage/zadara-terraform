@@ -1,0 +1,39 @@
+---
+- name: Installing k8s worker
+  hosts: k8sworkers
+  become: true
+  remote_user: ubuntu
+  tasks:
+
+    - name: apt-get update
+      shell: sudo apt-get update
+    - name: apt upgrade
+      shell: sudo apt-get -y upgrade
+    - name: install docker
+      apt: name=docker.io state=latest
+    - name: enable docker
+      shell: systemctl enable docker
+    - name: start iscsid
+      shell: systemctl start docker
+    - name: install iscsid
+      apt: name=open-iscsi state=latest
+    - name: enable iscsid
+      shell: systemctl enable iscsid
+    - name: start iscsid
+      shell: systemctl start iscsid
+    - name: install helm
+      shell: snap install helm --classic
+    - name: add google package
+      shell: curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add
+    - name: add repository
+      apt_repository:
+        repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+        state: present
+    - name: install kube
+      ansible.builtin.apt:
+        pkg:
+        - kubeadm
+        - kubelet
+        - kubectl
+    - name: Joining the Node...
+      shell: bash /home/ubuntu/joincmd.sh  
