@@ -6,3 +6,4 @@ All use the official Hashicorp AWS Provider https://registry.terraform.io/provid
 - Docker-Swarm-Portainer is a example to deploy a Docker swarm cluster with the Portainer management portal
 - Loadbalancer is a example to deploy a Application Loadblancer with 4 Webserver
 - RKE2 is a example to deploy a full RKE2 Kubernetes Environment with the EKS-D extension
+- K8s is a example to deploy a full native K8s Kubernetes Environment. Cluster are created and worker nodes joined
