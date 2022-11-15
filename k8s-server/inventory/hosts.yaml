@@ -1,0 +1,7 @@
+[k8smanagers]
+k8smanager ansible_ssh_host=
+
+[k8sworkers]
+k8sworker-0 ansible_ssh_host=
+k8sworker-1 ansible_ssh_host=
+
