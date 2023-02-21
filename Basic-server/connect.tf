@@ -10,5 +10,6 @@ provider "aws" {
     skip_metadata_api_check = true
     skip_credentials_validation = true
     skip_requesting_account_id = true
+    version = "3.33"
     region = "us-east-1"
   }
