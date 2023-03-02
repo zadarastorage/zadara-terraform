@@ -1,5 +1,7 @@
 # K8s Kubernetes Example
-Example Script to deploy a RKE2 Master with 2 Worker Nodes
+Example Script to deploy a K8s Master with 2 Worker Nodes
+
+
 
 
 ## Prepare the Script
