@@ -1,0 +1,9 @@
+---
+- name: Installing k8s worker
+  hosts: k8sworkers
+  become: true
+  remote_user: ubuntu
+  tasks:
+
+    - name: Joining the Node...
+      shell: bash /home/ubuntu/joincmd.sh  

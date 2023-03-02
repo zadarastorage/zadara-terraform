@@ -1,0 +1,44 @@
+---
+- name: Installing k8s manager
+  hosts: k8smanagers
+  become: true
+  remote_user: ubuntu
+  tasks:    
+
+
+
+
+    - name: create k8s cluster
+      shell: sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+
+    - name: create .kube directory ubuntu
+      shell: mkdir -p /home/ubuntu/.kube
+    - name: create .kube directory root
+      shell: mkdir -p /root/.kube      
+    - name: copy config to .kube ubuntu
+      shell: sudo cp -i /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
+    - name: copy config to .kube root
+      shell: sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config      
+    - name: chown of cponfig in .kube ubuntu
+      shell: sudo chown -R ubuntu:ubuntu /home/ubuntu/.kube
+
+    - name: install Flannel
+      command: sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+    - name: Generating Join Command and Token...
+      command: kubeadm token create  --print-join-command
+      register: kubeadm_join
+    - name:  Join Kubernetes Node in Cluster with this command...
+      debug:
+       var: kubeadm_join.stdout
+
+
+    - name: Saving join Command...
+      copy:
+       content: "{{ kubeadm_join.stdout }}"
+       dest: joincmd.sh
+       mode: a+x
+      delegate_to: "{{item}}"
+      with_items:
+      - k8sworker-0
+      - k8sworker-1 
+      - k8sworker-2    

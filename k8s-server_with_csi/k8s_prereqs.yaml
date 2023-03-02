@@ -1,0 +1,53 @@
+---
+- name: Installing k8s manager
+  hosts: k8smanagers k8sworkers
+  become: true
+  remote_user: ubuntu
+  tasks:
+
+
+    - name: add google package
+      shell: curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add
+    - name: add docker packages
+      shell: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+    - name: add docker repository
+      shell: echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list        
+
+
+
+    - name: add kubernetes repository
+      apt_repository:
+        repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+        state: present
+
+    - name: apt-get update
+      shell: sudo apt-get update
+    - name: apt upgrade
+      shell: sudo apt-get -y upgrade                
+    - name: install packages
+      ansible.builtin.apt:
+        pkg:
+        - docker.io
+        - open-iscsi
+        - kubeadm
+        - kubelet
+        - kubectl
+    - name: enable docker
+      shell: systemctl enable docker
+    - name: start docker
+      shell: systemctl start docker
+    - name: enable iscsid
+      shell: systemctl enable iscsid
+    - name: start iscsid
+      shell: systemctl start iscsid
+    - name: install helm
+      shell: snap install helm --classic
+    - name: install packages
+      ansible.builtin.apt:
+        pkg:
+        - containerd.io
+    
+    - name: enable CRI
+      shell: sudo sed -i 's/^disabled_plugins \=/\#disabled_plugins \=/g' /etc/containerd/config.toml   
+    - name: restart containerd
+      shell: sudo systemctl restart containerd   

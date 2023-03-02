@@ -1,0 +1,112 @@
+---
+- name: Installing k8s manager
+  hosts: k8smanagers
+  become: true
+  remote_user: ubuntu
+
+  vars:
+    my_vpsahostname: "{{ vpsahostname }}"
+    my_vpsatoken: "{{ vpsatoken }}"
+
+  tasks:
+
+
+    - name: add zadara-csi repository
+      shell: sudo helm repo add zadara-csi-helm https://raw.githubusercontent.com/zadarastorage/zadara-csi/release/zadara-csi-helm
+    - name: add zadara-csi snapshotclass
+      shell: sudo helm install csi-snapshots-v1 zadara-csi-helm/snapshots-v1
+    - name: add zadara-csi storageclass
+      shell: sudo helm install zadara-csi zadara-csi-helm/zadara-csi
+
+
+    - name: create VSCStorageClassName
+      shell:
+        cmd: |
+          cat << EOF > vsc_sc.yaml
+          apiVersion: storage.zadara.com/v1
+          kind: VSCStorageClass
+          metadata:
+           name: vscstorageclass-vpsa
+          spec:
+           displayName: "Example VSC Storage Class"
+           isDefault: true
+          EOF
+      args:
+        executable: /bin/bash   
+
+
+    - name: create vpsa.yaml
+      shell:
+        cmd: |
+          cat << EOF > vpsa.yaml
+          apiVersion: storage.zadara.com/v1
+          kind: VPSA
+          metadata:
+            name: vpsa-sample
+          spec:
+            displayName: "My VPSA"
+            hostname: "example.zadaravpsa.com"
+            token: "SUPER-SECRET-TOKEN-12345"
+            VSCStorageClassName: "vscstorageclass-vpsa"
+          EOF
+      args:
+        executable: /bin/bash 
+    - name: create storageclass.yaml
+      shell:
+        cmd: |
+          cat << EOF > storageclass.yaml
+          apiVersion: storage.k8s.io/v1
+          kind: StorageClass
+          metadata:
+            name: zadara-csi-nas
+            annotations:
+              storageclass.kubernetes.io/is-default-class: "true"
+          provisioner: csi.zadara.com
+          reclaimPolicy: Delete
+          allowVolumeExpansion: true
+          mountOptions: []
+          parameters:
+            VSCStorageClassName: "vscstorageclass-sample"
+            volumeOptions: ''
+          EOF
+      args:
+        executable: /bin/bash     
+
+    - name: create volumesnapshotclass.yaml
+      shell:
+        cmd: |
+          cat << EOF > volumesnapshotclass.yaml
+          ---
+          apiVersion: snapshot.storage.k8s.io/v1
+          kind: VolumeSnapshotClass
+          metadata:
+            name: zadara-csi-snapshot-clas
+            annotations:
+              k10.kasten.io/is-snapshot-class: "true"
+          deletionPolicy: Delete
+          driver: csi.zadara.com
+          parameters: {}
+          EOF
+      args:
+        executable: /bin/bash     
+
+
+    - name: write VPSA ip
+      replace:
+        path: vpsa.yaml
+        regexp: 'example.zadaravpsa.com'
+        replace: "{{my_vpsahostname}}"
+
+    - name: write VPSA token
+      replace:
+        path: vpsa.yaml
+        regexp: 'SUPER-SECRET-TOKEN-12345'
+        replace: "{{my_vpsatoken}}"
+    - name: add vscstorageclass
+      shell: sudo kubectl apply -f vsc_sc.yaml
+    - name: add vpsa
+      shell: sudo kubectl apply -f vpsa.yaml
+    - name: add storageclass
+      shell: sudo kubectl apply -f storageclass.yaml  
+    - name: add storageclass
+      shell: sudo kubectl apply -f volumesnapshotclass.yaml  
