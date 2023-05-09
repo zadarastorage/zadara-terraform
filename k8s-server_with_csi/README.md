@@ -27,8 +27,9 @@ After you have adjust the variable.tf file you must run the following command
 - worker.tf create the worker servers
 - postscript.tf runs the asible playbook
 - ansible.cfg define the ansible variables
-- rke2_server.yaml is the Ansible script to install the prereqs and RKE2
-- rke2_worker.yaml is the Ansible script to install the prereqs and join to the master server
-- buffer/rke2manager is a buffer to store the token for joining the worker nodes
+- k8s_csi.yaml is the Ansible script to install the Zadara CSI driver
+- k8s_prereqs.yaml is the Ansible script to install the prereqs
+- k8s_server.yaml is the Ansible script to install k8s master server
+- k8s_worker.yaml is the Ansible script to install k8s worker and join to the master server
 - inventory is the Ansible inventory
 - templates define how the ips are stored in the inventory
