@@ -5,7 +5,7 @@
   remote_user: ubuntu
   tasks:    
 
-s
+
 
 
     - name: create k8s cluster
