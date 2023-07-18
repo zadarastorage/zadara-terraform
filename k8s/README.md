@@ -1,5 +1,6 @@
 # K8s Kubernetes Example
 Example Script to deploy a K8s Master with 2 Worker Nodes
+!!! tested with Ubuntu 20.04 !!!
 
 
 
