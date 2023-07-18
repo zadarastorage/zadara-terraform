@@ -36,15 +36,15 @@
    
 
     - name: create k8s cluster
-      shell: sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+      shell: sudo kubeadm init --pod-network-cidr=192.168.0.0/16
     - name: create .kube directory 
       shell: mkdir -p $HOME/.kube
     - name: copy config to .kube
       shell: sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
     - name: chown of cponfig in .kube
       shell: sudo chown $(id -u):$(id -g) $HOME/.kube/config
-    - name: install flannel
-      shell: sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+    - name: install calico
+      shell: sudo kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/calico.yaml
 
     - name: Generating Join Command and Token...
       command: kubeadm token create  --print-join-command
