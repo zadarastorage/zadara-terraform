@@ -1,5 +1,6 @@
 # k8s Kubernetes Example
-Example Script to deploy a K8s Master with 2 Worker Nodes
+Example Script to deploy a K8s Master with 3 Worker Nodes
+!!! tested with Ubunut 20.04 !!!
 
 
 ## Prepare the Script
