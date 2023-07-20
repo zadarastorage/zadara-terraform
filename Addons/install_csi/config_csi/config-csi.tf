@@ -42,6 +42,7 @@ resource "kubernetes_manifest" "vpsa" {
         VSCStorageClassName = "vscstorageclass-vpsa"
     }   
   }
+ 
 }
 
 
@@ -79,4 +80,5 @@ resource "kubernetes_manifest" "volumesnapshotclass" {
     deletionPolicy= "Delete"
     driver = "csi.zadara.com"
   }
+
 }
