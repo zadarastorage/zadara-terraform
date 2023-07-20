@@ -1,4 +1,4 @@
-# install Kasten K10 by Veeam Addon
+# Install Kasten K10 by Veeam Addon
 
 All use the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/latest/docs
 
