@@ -8,7 +8,6 @@ provider "aws" {
         elb = "https://${var.zcloud_ip}/api/v2/aws/elb"
         route53 = "https://${var.zcloud_ip}/api/v2/aws/route53"
         }
-    insecure = "true"
     skip_metadata_api_check = true
     skip_credentials_validation = true
     skip_requesting_account_id = true
