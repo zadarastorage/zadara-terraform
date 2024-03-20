@@ -1,4 +1,4 @@
-# This Repository provide several zCloud examples
+# This Repository provide several zCompute Terraform examples
 
 All use the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/latest/docs
 - Addons contains terrraform examples that can added to existing kubernetes cluster
