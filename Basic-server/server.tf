@@ -12,16 +12,14 @@ resource "aws_instance" "server" {
   Name     = "${var.servername}${count.index}"
   }
 }
-resource "aws_network_interface" "server" {
-  subnet_id       = "${var.subnet}"
-  security_groups = ["${aws_security_group.allow_all.id}"]
-}
+
 resource "aws_eip" "server" {
   count = "${var.quantity-server}"
+  instance = aws_instance.server[count.index].id
 }
+
 resource "aws_eip_association" "eip_server" {
-  instance_id        = "${element(aws_instance.server.*.id,count.index)}"
-  network_interface_id = aws_network_interface.server.id
-  allocation_id = "${element(aws_eip.server.*.id,count.index)}"
   count = "${var.quantity-server}"
+  instance_id   = aws_instance.server[count.index].id
+  allocation_id = aws_eip.server[count.index].id
 }
