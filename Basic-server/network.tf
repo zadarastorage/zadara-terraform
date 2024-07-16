@@ -6,7 +6,7 @@ data "http" "myip" {
 resource "aws_security_group" "allow_all" {
   vpc_id      = var.vpc
   name        = "allow_all"
-  description = "Allow all traffic"
+  description = "Allow all outbout, allow only me inbound"
 
   ingress {
     from_port   = 0
