@@ -18,7 +18,6 @@ resource "aws_network_interface" "server" {
 }
 resource "aws_eip" "server" {
   count = "${var.quantity-server}"
-  vpc = true
 }
 resource "aws_eip_association" "eip_server" {
   instance_id        = "${element(aws_instance.server.*.id,count.index)}"
