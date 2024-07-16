@@ -1,11 +1,11 @@
 variable "accesskey" {
-  default = "your access key"
+  type = string  // Your access Key
 }
 variable "secretkey" {
-  default = "your private key"
+  type = string  // Your secret Key
 }
 variable "zcloud_ip" {
-  default = "your zcloud URL"
+  type = string  // FQDN or IP of Zadara Compute cloud (eg, compute-example-01.zadara.com)
 }
 variable "quantity-server" {
   default = 2
@@ -14,17 +14,17 @@ variable "servername" {
   default = "server-"
 }
 variable "keyname" {
-  default = "your keyname"
+  type = string  // Name of Key Pair to be used for VM
 }
 variable "instance" {
   default = "z4.large"
 }
 variable "ami" {
-    default = "your ami ID starts with ami-"
+  type = string  // Image ID, starts with ami-
 }
 variable "vpc" {
-  default = "your VPC ID starts with vpc-"
+  type = string  // VPC ID, starts with vpc-
 }
 variable "subnet" {
-  default = "your Subnet ID starts with subnet-"
+  type = string  // Subnet ID, starts with subnet-
 }
