@@ -1,0 +1,313 @@
+---
+- name: Deploy K3s Kubernetes Cluster
+  hosts: all
+  become: yes
+  vars:
+    k3s_version: "v1.28.3+k3s2"
+    k3s_token: "{{ vault_k3s_token | default('mySecureToken123') }}"
+    k3s_server_location: "/var/lib/rancher/k3s"
+    k3s_service_dir: "/etc/systemd/system"
+    
+  tasks:
+    - name: Update system packages
+      package:
+        name: "*"
+        state: latest
+      when: ansible_os_family == "RedHat"
+      
+    - name: Update apt packages
+      apt:
+        upgrade: dist
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install required packages
+      package:
+        name:
+          - curl
+          - wget
+          - software-properties-common
+        state: present
+
+    - name: Disable swap
+      shell: |
+        swapoff -a
+        sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+
+    - name: Load kernel modules for K3s
+      modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - br_netfilter
+        - overlay
+
+    - name: Make kernel modules persistent
+      lineinfile:
+        path: /etc/modules-load.d/k3s.conf
+        line: "{{ item }}"
+        create: yes
+      loop:
+        - br_netfilter
+        - overlay
+
+    - name: Set sysctl parameters for K3s
+      sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - { key: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+        - { key: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+        - { key: 'net.ipv4.ip_forward', value: '1' }
+
+- name: Install K3s Master Node
+  hosts: k3s_master
+  become: yes
+  vars:
+    k3s_version: "v1.28.3+k3s2"
+    k3s_token: "{{ vault_k3s_token | default('mySecureToken123') }}"
+    
+  tasks:
+    - name: Download K3s installation script
+      get_url:
+        url: https://get.k3s.io
+        dest: /tmp/k3s_install.sh
+        mode: '0755'
+
+    - name: Install K3s master
+      shell: |
+        INSTALL_K3S_VERSION={{ k3s_version }} \
+        K3S_TOKEN={{ k3s_token }} \
+        sh /tmp/k3s_install.sh --cluster-init
+      environment:
+        INSTALL_K3S_EXEC: "--disable=traefik --disable=servicelb --write-kubeconfig-mode=644 --bind-address=0.0.0.0 --advertise-address={{ ansible_default_ipv4.address }}"
+
+    - name: Wait for K3s service to start
+      systemd:
+        name: k3s
+        state: started
+        enabled: yes
+      register: k3s_service_status
+
+    - name: Wait for K3s API to be ready
+      uri:
+        url: "https://127.0.0.1:6443/readyz"
+        method: GET
+        validate_certs: no
+        timeout: 5
+        status_code: [200, 401, 403]  # 401/403 means API is up but requires auth
+      register: api_ready
+      retries: 30
+      delay: 10
+      until: api_ready.status in [200, 401, 403]
+
+    - name: Test external API access
+      uri:
+        url: "https://{{ ansible_default_ipv4.address }}:6443/readyz"
+        method: GET
+        validate_certs: no
+        timeout: 5
+        status_code: [200, 401, 403]  # 401/403 means API is up but requires auth
+      register: external_api_ready
+      retries: 10
+      delay: 5
+      until: external_api_ready.status in [200, 401, 403]
+      ignore_errors: yes
+
+    - name: Debug API accessibility
+      debug:
+        msg:
+          - "Local API (127.0.0.1): {{ 'Ready' if api_ready.status in [200, 401, 403] else 'Not Ready' }}"
+          - "External API ({{ ansible_default_ipv4.address }}): {{ 'Ready' if external_api_ready.status in [200, 401, 403] else 'Not Ready' }}"
+          - "Service status: {{ k3s_service_status.status.ActiveState | default('Unknown') }}"
+
+    - name: Get K3s node token
+      slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: k3s_node_token_raw
+      retries: 5
+      delay: 10
+      until: k3s_node_token_raw is succeeded
+
+    - name: Store node token as fact
+      set_fact:
+        k3s_node_token: "{{ k3s_node_token_raw.content | b64decode | trim }}"
+      
+    - name: Debug node token
+      debug:
+        msg: "Node token retrieved: {{ k3s_node_token[:10] }}..."
+
+    - name: Create .kube directory for root
+      file:
+        path: /root/.kube
+        state: directory
+        mode: '0755'
+
+    - name: Copy kubeconfig to .kube directory
+      copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: /root/.kube/config
+        remote_src: yes
+        mode: '0600'
+
+    - name: Create .kube directory for regular user
+      file:
+        path: "/home/{{ ansible_user }}/.kube"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      when: ansible_user != 'root'
+
+    - name: Copy kubeconfig for regular user
+      copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "/home/{{ ansible_user }}/.kube/config"
+        remote_src: yes
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0600'
+      when: ansible_user != 'root'
+
+- name: Install K3s Worker Nodes
+  hosts: k3s_workers
+  become: yes
+  vars:
+    k3s_version: "v1.28.3+k3s2"
+    
+  tasks:
+    - name: Check master node connectivity
+      uri:
+        url: "https://{{ hostvars[groups['k3s_master'][0]]['ansible_default_ipv4']['address'] }}:6443/readyz"
+        method: GET
+        validate_certs: no
+        timeout: 10
+        status_code: [200, 401, 403]  # 401/403 means API is up but requires auth
+      register: master_health_check
+      retries: 30
+      delay: 10
+      until: master_health_check.status in [200, 401, 403]
+      when: groups['k3s_master'] is defined and groups['k3s_master'] | length > 0
+      ignore_errors: yes
+
+    - name: Fallback - Test basic connectivity to master
+      wait_for:
+        host: "{{ hostvars[groups['k3s_master'][0]]['ansible_default_ipv4']['address'] }}"
+        port: 6443
+        timeout: 60
+      when: 
+        - groups['k3s_master'] is defined and groups['k3s_master'] | length > 0
+        - master_health_check is failed
+      ignore_errors: yes
+      register: basic_connectivity
+
+    - name: Debug connectivity issues
+      debug:
+        msg:
+          - "Master IP: {{ hostvars[groups['k3s_master'][0]]['ansible_default_ipv4']['address'] }}"
+          - "Health check result: {{ master_health_check.status | default('Failed') }}"
+          - "Basic connectivity: {{ 'Success' if basic_connectivity is not failed else 'Failed' }}"
+          - "API Status: {{ 'Ready (API responding)' if master_health_check.status in [200, 401, 403] else 'Not Ready' }}"
+      when: groups['k3s_master'] is defined and groups['k3s_master'] | length > 0
+
+    - name: Download K3s installation script
+      get_url:
+        url: https://get.k3s.io
+        dest: /tmp/k3s_install.sh
+        mode: '0755'
+
+    - name: Debug connection details
+      debug:
+        msg: 
+          - "Master IP: {{ hostvars[groups['k3s_master'][0]]['ansible_default_ipv4']['address'] }}"
+          - "Node Token: {{ hostvars[groups['k3s_master'][0]]['k3s_node_token'][:10] }}..."
+      when: groups['k3s_master'] is defined and groups['k3s_master'] | length > 0
+
+    - name: Install K3s worker
+      shell: |
+        INSTALL_K3S_VERSION={{ k3s_version }} \
+        K3S_TOKEN={{ hostvars[groups['k3s_master'][0]]['k3s_node_token'] }} \
+        K3S_URL=https://{{ hostvars[groups['k3s_master'][0]]['ansible_default_ipv4']['address'] }}:6443 \
+        sh /tmp/k3s_install.sh
+      when: groups['k3s_master'] is defined and groups['k3s_master'] | length > 0
+      timeout: 300
+      register: k3s_worker_install
+      
+    - name: Check K3s worker installation result
+      debug:
+        msg: "{{ k3s_worker_install.stdout_lines }}"
+      when: k3s_worker_install is defined
+
+    - name: Verify K3s agent service is running
+      systemd:
+        name: k3s-agent
+        state: started
+        enabled: yes
+      register: k3s_agent_status
+      
+    - name: Display agent service status
+      debug:
+        msg: "K3s agent service status: {{ k3s_agent_status.status.ActiveState }}"
+
+- name: Post-Installation Configuration
+  hosts: k3s_master
+  become: yes
+  tasks:
+    - name: Wait for all nodes to be ready
+      shell: kubectl get nodes --no-headers | wc -l
+      register: node_count
+      until: node_count.stdout | int >= groups['all'] | length
+      retries: 30
+      delay: 10
+
+    - name: Display cluster information
+      shell: kubectl get nodes -o wide
+      register: cluster_info
+
+    - name: Show cluster status
+      debug:
+        msg: "{{ cluster_info.stdout_lines }}"
+
+    - name: Create example namespace
+      shell: kubectl create namespace example-app
+      ignore_errors: yes
+
+    - name: Install Helm (optional)
+      shell: |
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      ignore_errors: yes
+
+- name: Configure Firewall (if needed)
+  hosts: all
+  become: yes
+  tasks:
+    - name: Open required ports for K3s
+      firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      loop:
+        - 6443/tcp    # K3s API server
+        - 10250/tcp   # Kubelet API
+        - 8472/udp    # Flannel VXLAN
+        - 51820/udp   # Flannel Wireguard (if using Wireguard)
+        - 51821/udp   # Flannel Wireguard (if using Wireguard)
+      when: ansible_facts['os_family'] == "RedHat"
+      ignore_errors: yes
+
+    - name: Configure UFW for K3s (Ubuntu/Debian)
+      ufw:
+        rule: allow
+        port: "{{ item.split('/')[0] }}"
+        proto: "{{ item.split('/')[1] }}"
+      loop:
+        - 6443/tcp
+        - 10250/tcp
+        - 8472/udp
+        - 51820/udp
+        - 51821/udp
+      when: ansible_facts['os_family'] == "Debian"
+      ignore_errors: yes
