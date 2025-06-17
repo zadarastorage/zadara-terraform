@@ -8,7 +8,7 @@ variable "zcloud_ip" {
   default = "Zadara compute URL"
 }
 variable "quantity" {
-  default = 4
+  default = 2
 }
 variable "servername" {
   default = "webserver-"
