@@ -14,6 +14,7 @@ provider "aws" {
     endpoints {
         ec2 = "https://${var.zcloud_ip}/api/v2/ec2"
         iam = "https://${var.zcloud_ip}/api/v2/aws/iam"
+        elb = "https://${var.zcloud_ip}/api/v2/aws/elb"
     }
     insecure = "true"
     skip_metadata_api_check = true
