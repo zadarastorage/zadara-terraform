@@ -1,0 +1,33 @@
+#cloud-config
+# 1. WRITE FILES
+# This replaces the 'provisioner "file"' block.
+# We take the content injected by Terraform and write it to disk.
+write_files:
+  # 1. Write the Docker Compose file
+  - path: /home/ubuntu/docker-compose.zadara.dev.yml
+    owner: root:root
+    permissions: '0644'
+    # KEY CHANGE: Tell Cloud-Init the content is gzipped
+    encoding: gz+b64
+    # KEY CHANGE: Inject the already-encoded string directly (no 'base64encode' here)
+    content: ${docker_compose_encoded}
+
+  # 2. Write the Setup Script
+  - path: /tmp/setup.sh
+    owner: root:root
+    permissions: '0755'
+    encoding: gz+b64
+    content: ${setup_script_encoded}
+
+runcmd:
+  - echo "Starting Cloud-Init Setup..."
+
+  # Fix permissions now that the user exists
+  - chown ubuntu:ubuntu /home/ubuntu/docker-compose.zadara.dev.yml
+
+  # Run the setup script
+  - /tmp/setup.sh
+
+  # Navigate and start
+  - cd /home/ubuntu
+  - echo "Setup Complete!"
