@@ -1,8 +1,8 @@
 variable "accesskey" {
-  default = "0e23f53d59d44d978954b4806169d732"
+  default = "<your access key here>"
 }
 variable "secretkey" {
-  default = "0abb7599e9b44b48b94ef97c1dc27d8b"
+  default = "<your secret key here>"
 }
 variable "zcloud_url" {
   default = "compute-lc-us-east-04.zadara.com"
@@ -11,20 +11,20 @@ variable "quantity_server" {
   default = 1
 }
 variable "servername" {
-  default = "EU-Demo-GPU-L4"
+  default = "Demo-GPU-Server"
 }
 variable "keyname" {
-  default = "zadara_eu_sa_team"
+  default = "<your key name here>"
 }
 variable "instance" {
-  default = "GPU_L4.4xlarge"
+  default = "GPU_L4.4xlarge" # L4: GPU_L4.4xlarge or L40S: GPU_L40S.4xlarge
 }
 variable "ami" {
-    default = "ami-d21ff96f82204bf89db8a0759cc92bb8"
+    default = "ami-d21ff96f82204bf89db8a0759cc92bb8" # Ubuntu 24.04
 }
 variable "vpc" {
-  default = "vpc-42244aaef56640d9a03caa9256cacc35"
+  default = "<your vpc id here>" # starting vpc-
 }
 variable "subnet" {
-  default = "subnet-b18baa455f7340859b964d8436464b4a"
+  default = "<your subnet id here>" # starting subnet-
 }
