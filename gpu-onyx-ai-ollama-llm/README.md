@@ -27,7 +27,7 @@ More than one source location can be added (in a separate "ingress" block).
 
 Google "what is my IP address" to find your IP(s).
 
-i.e. cidr_blocks = ["<your IP here>/32"]
+i.e. cidr_blocks = ["'<your IP here>'/32"]
 
 
 ## Run Terraform
