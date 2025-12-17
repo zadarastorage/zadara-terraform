@@ -44,7 +44,7 @@ To delete the VM afterwards:
 Estimated timings:
 - Terraform script to run: ~1 minute
 - VM to complete the installation: ~12 minutes
-- terraform destryy: ~1 minute
+- terraform destroy: ~1 minute
 
 
 Using the Public IP (eip_address) displayed at the end of the terraform script, SSH into the new VM and enter:
