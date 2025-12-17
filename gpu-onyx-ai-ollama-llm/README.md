@@ -47,7 +47,7 @@ Estimated timings:
 - "terraform destroy" to run: ~1 minute
 
 
-Using the Public IP (eip_address) displayed at the end of the terraform script, SSH into the new VM and enter:
+Using the Public IP (eip_address) displayed at the end of the "terraform apply" job, SSH into the new VM and enter:
 - tail -f /var/log/cloud-init-output.log
 
 This will display the packages being installed and the creation of Docker containers through to completion.
