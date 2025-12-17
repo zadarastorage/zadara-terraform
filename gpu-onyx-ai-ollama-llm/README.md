@@ -22,12 +22,9 @@ Configure the following lines with the details obtained from within your zComput
 
 2. network.tf
 
-Update the "cidr_blocks" line with your source/egress IP.
-More than one source location can be added (in a separate "ingress" block).
-
-Google "what is my IP address" to find your IP(s).
-
-i.e. cidr_blocks = ["your IP here/32"]
+- Update the "cidr_blocks" line with your source/egress IP i.e. cidr_blocks = ["your IP here/32"]
+- More than one source location can be added (in a separate "ingress" block).
+- Google "what is my IP address" to find your IP(s).
 
 
 ## Run Terraform
