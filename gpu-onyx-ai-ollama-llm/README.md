@@ -65,11 +65,9 @@ Once logged in, navigate to: “Admin Panel → LLM → Ollama → Set up”
 Complete the following:
 
 - Display Name: Ollama
-- API Base: http://ollama:11434
-- Click “Fetch Available Models”
-- Default model: get-ups:20b
-- Set “Fast Model” to: qwen3:1.7b
-- Under “Advanced Options” tick all 3 boxes under “Display Models”.
+- API Base URL: http://ollama:11434
+- Default model: gpt-oss:20b
+- Under “Available Models” tick all 3 boxes (if not already ticked).
 - Click “Enable”.
 - Finally, “Exit Admin”.
 
