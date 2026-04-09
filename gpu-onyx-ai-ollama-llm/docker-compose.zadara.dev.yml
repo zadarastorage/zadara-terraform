@@ -36,17 +36,13 @@ services:
     restart: unless-stopped
     # Enable NVIDIA GPU for Ollama
     # Uncomment below to enable NVIDIA GPU support (remove the #).
-#    deploy:
-#      resources:
-#        reservations:
-#          devices:
-#            - driver: nvidia
-#              count: all
-#              capabilities: [gpu]
-    device_requests:
-      - driver: nvidia
-        count: all
-        capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   portainer:
     image: portainer/portainer-ce:latest
@@ -69,17 +65,13 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
-#    deploy:
-#      resources:
-#        reservations:
-#          devices:
-#            - driver: nvidia
-#              count: all   # or '1' for single GPU
-#              capabilities: [gpu]
-    device_requests:
-      - driver: nvidia
-        count: all
-        capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all   # or '1' for single GPU
+              capabilities: [gpu]
 
   api_server:
     image: onyxdotapp/onyx-backend:${IMAGE_TAG:-latest}
