@@ -1,8 +1,31 @@
-#version: "3.9"
+version: "3.9"
+
+#networks:
+#  opensearch-net:
+#    driver: bridge
+
 services:
-# ----------------------------
-# From Kirk's docker-compose.zadara.dev.yml file
-# ----------------------------
+  opensearch:
+    image: opensearchproject/opensearch:latest
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms1024m -Xmx1024m"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: "Zadara-Demo-2026"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    restart: unless-stopped
+#    networks:
+#      - opensearch-net
+#      - default
+
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
@@ -13,13 +36,17 @@ services:
     restart: unless-stopped
     # Enable NVIDIA GPU for Ollama
     # Uncomment below to enable NVIDIA GPU support (remove the #).
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: all
+#              capabilities: [gpu]
+    device_requests:
+      - driver: nvidia
+        count: all
+        capabilities: [gpu]
 
   portainer:
     image: portainer/portainer-ce:latest
@@ -38,29 +65,34 @@ services:
     ports:
       - "61208:61208"
     environment:
-      - GLANCES_OPT=-w
+      GLANCES_OPT: -w
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all   # or '1' for single GPU
-              capabilities: [gpu]
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: all   # or '1' for single GPU
+#              capabilities: [gpu]
+    device_requests:
+      - driver: nvidia
+        count: all
+        capabilities: [gpu]
 
   api_server:
     image: onyxdotapp/onyx-backend:${IMAGE_TAG:-latest}
-    #    build:
-    #      context: ../../backend
-    #      dockerfile: Dockerfile
+    # build:
+    #   context: ../../backend
+    #   dockerfile: Dockerfile
     command: >
       /bin/sh -c "alembic upgrade head &&
       echo \"Starting Onyx Api Server\" &&
       uvicorn onyx.main:app --host 0.0.0.0 --port 8080"
     depends_on:
       - relational_db
+      - opensearch
       - index
       - cache
       - inference_model_server
@@ -68,128 +100,131 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
+#    networks:
+#      - opensearch-net
+#      - default
     environment:
+      OPENSEARCH_HOST: opensearch
+      OPENSEARCH_PORT: 9200
+      OPENSEARCH_ADMIN_USERNAME: "admin"
+      OPENSEARCH_ADMIN_PASSWORD: "Zadara-Demo-2026"
+      #OPENSEARCH_URL: "https://admin:Zadara-Demo-2026@opensearch:9200"
+      #OPENSEARCH_USE_SSL: true
+      OPENSEARCH_VERIFY_CERTS: false
       # Auth Settings
-      - AUTH_TYPE=basic
-      - SESSION_EXPIRE_TIME_SECONDS=${SESSION_EXPIRE_TIME_SECONDS:-}
-      - ENCRYPTION_KEY_SECRET=${ENCRYPTION_KEY_SECRET:-}
-      - VALID_EMAIL_DOMAINS=${VALID_EMAIL_DOMAINS:-}
-      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
-      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}
-      - REQUIRE_EMAIL_VERIFICATION=${REQUIRE_EMAIL_VERIFICATION:-}
-      - SMTP_SERVER=${SMTP_SERVER:-} # For sending verification emails, if unspecified then defaults to 'smtp.gmail.com'
-      - SMTP_PORT=${SMTP_PORT:-587} # For sending verification emails, if unspecified then defaults to '587'
-      - SMTP_USER=${SMTP_USER:-}
-      - SMTP_PASS=${SMTP_PASS:-}
-      - ENABLE_EMAIL_INVITES=${ENABLE_EMAIL_INVITES:-} # If enabled, will send users (using SMTP settings) an email to join the workspace
-      - EMAIL_FROM=${EMAIL_FROM:-}
-      - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID:-}
-      - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET:-}
-      - OPENID_CONFIG_URL=${OPENID_CONFIG_URL:-}
-      - TRACK_EXTERNAL_IDP_EXPIRY=${TRACK_EXTERNAL_IDP_EXPIRY:-}
-      - CORS_ALLOWED_ORIGIN=${CORS_ALLOWED_ORIGIN:-}
-      - INTEGRATION_TESTS_MODE=${INTEGRATION_TESTS_MODE:-}
+      AUTH_TYPE: basic
+      SESSION_EXPIRE_TIME_SECONDS: ${SESSION_EXPIRE_TIME_SECONDS:-}
+      ENCRYPTION_KEY_SECRET: ${ENCRYPTION_KEY_SECRET:-}
+      VALID_EMAIL_DOMAINS: ${VALID_EMAIL_DOMAINS:-}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-}
+      SMTP_SERVER: ${SMTP_SERVER:-} # For sending verification emails, if unspecified then defaults to 'smtp.gmail.com'
+      SMTP_PORT: ${SMTP_PORT:-587} # For sending verification emails, if unspecified then defaults to '587'
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      ENABLE_EMAIL_INVITES: ${ENABLE_EMAIL_INVITES:-} # If enabled, will send users (using SMTP settings) an email to join the workspace
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:-}
+      OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET:-}
+      OPENID_CONFIG_URL: ${OPENID_CONFIG_URL:-}
+      TRACK_EXTERNAL_IDP_EXPIRY: ${TRACK_EXTERNAL_IDP_EXPIRY:-}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-}
+      INTEGRATION_TESTS_MODE: ${INTEGRATION_TESTS_MODE:-}
       # Gen AI Settings
-      - GEN_AI_MAX_TOKENS=${GEN_AI_MAX_TOKENS:-}
-      - QA_TIMEOUT=${QA_TIMEOUT:-}
-      - MAX_CHUNKS_FED_TO_CHAT=${MAX_CHUNKS_FED_TO_CHAT:-}
-      - DISABLE_LLM_CHOOSE_SEARCH=${DISABLE_LLM_CHOOSE_SEARCH:-}
-      - DISABLE_LLM_QUERY_REPHRASE=${DISABLE_LLM_QUERY_REPHRASE:-}
-      - DISABLE_GENERATIVE_AI=${DISABLE_GENERATIVE_AI:-}
-      - DISABLE_LITELLM_STREAMING=${DISABLE_LITELLM_STREAMING:-}
-      - LITELLM_EXTRA_HEADERS=${LITELLM_EXTRA_HEADERS:-}
-      - BING_API_KEY=${BING_API_KEY:-}
-      - EXA_API_KEY=${EXA_API_KEY:-}
-      - DISABLE_LLM_DOC_RELEVANCE=${DISABLE_LLM_DOC_RELEVANCE:-}
-      - ENABLE_PAID_ENTERPRISE_EDITION_FEATURES=${ENABLE_PAID_ENTERPRISE_EDITION_FEATURES:-false}
-      - NEXT_PUBLIC_CUSTOM_REFRESH_URL=${NEXT_PUBLIC_CUSTOM_REFRESH_URL:-}
-      - GEN_AI_API_KEY=${GEN_AI_API_KEY:-}
+      GEN_AI_MAX_TOKENS: ${GEN_AI_MAX_TOKENS:-}
+      QA_TIMEOUT: ${QA_TIMEOUT:-}
+      MAX_CHUNKS_FED_TO_CHAT: ${MAX_CHUNKS_FED_TO_CHAT:-}
+      DISABLE_LLM_CHOOSE_SEARCH: ${DISABLE_LLM_CHOOSE_SEARCH:-}
+      DISABLE_LLM_QUERY_REPHRASE: ${DISABLE_LLM_QUERY_REPHRASE:-}
+      DISABLE_GENERATIVE_AI: ${DISABLE_GENERATIVE_AI:-}
+      DISABLE_LITELLM_STREAMING: ${DISABLE_LITELLM_STREAMING:-}
+      LITELLM_EXTRA_HEADERS: ${LITELLM_EXTRA_HEADERS:-}
+      BING_API_KEY: ${BING_API_KEY:-}
+      EXA_API_KEY: ${EXA_API_KEY:-}
+      DISABLE_LLM_DOC_RELEVANCE: ${DISABLE_LLM_DOC_RELEVANCE:-}
+      ENABLE_PAID_ENTERPRISE_EDITION_FEATURES: ${ENABLE_PAID_ENTERPRISE_EDITION_FEATURES:-false}
+      NEXT_PUBLIC_CUSTOM_REFRESH_URL: ${NEXT_PUBLIC_CUSTOM_REFRESH_URL:-}
+      GEN_AI_API_KEY: ${GEN_AI_API_KEY:-}
       # if set, allows for the use of the token budget system
-      - TOKEN_BUDGET_GLOBALLY_ENABLED=${TOKEN_BUDGET_GLOBALLY_ENABLED:-}
+      TOKEN_BUDGET_GLOBALLY_ENABLED: ${TOKEN_BUDGET_GLOBALLY_ENABLED:-}
       # Query Options
-      - DOC_TIME_DECAY=${DOC_TIME_DECAY:-} # Recency Bias for search results, decay at 1 / (1 + DOC_TIME_DECAY * x years)
-      - HYBRID_ALPHA=${HYBRID_ALPHA:-} # Hybrid Search Alpha (0 for entirely keyword, 1 for entirely vector)
-      - EDIT_KEYWORD_QUERY=${EDIT_KEYWORD_QUERY:-}
-      - MULTILINGUAL_QUERY_EXPANSION=${MULTILINGUAL_QUERY_EXPANSION:-}
-      - LANGUAGE_HINT=${LANGUAGE_HINT:-}
-      - LANGUAGE_CHAT_NAMING_HINT=${LANGUAGE_CHAT_NAMING_HINT:-}
-      - QA_PROMPT_OVERRIDE=${QA_PROMPT_OVERRIDE:-}
-      - USE_SEMANTIC_KEYWORD_EXPANSIONS_BASIC_SEARCH=${USE_SEMANTIC_KEYWORD_EXPANSIONS_BASIC_SEARCH:-}
+      DOC_TIME_DECAY: ${DOC_TIME_DECAY:-} # Recency Bias for search results, decay at 1 / (1 + DOC_TIME_DECAY * x years)
+      HYBRID_ALPHA: ${HYBRID_ALPHA:-} # Hybrid Search Alpha (0 for entirely keyword, 1 for entirely vector)
+      EDIT_KEYWORD_QUERY: ${EDIT_KEYWORD_QUERY:-}
+      MULTILINGUAL_QUERY_EXPANSION: ${MULTILINGUAL_QUERY_EXPANSION:-}
+      LANGUAGE_HINT: ${LANGUAGE_HINT:-}
+      LANGUAGE_CHAT_NAMING_HINT: ${LANGUAGE_CHAT_NAMING_HINT:-}
+      QA_PROMPT_OVERRIDE: ${QA_PROMPT_OVERRIDE:-}
+      USE_SEMANTIC_KEYWORD_EXPANSIONS_BASIC_SEARCH: ${USE_SEMANTIC_KEYWORD_EXPANSIONS_BASIC_SEARCH:-}
       # Other services
-      - POSTGRES_HOST=relational_db
-      - POSTGRES_DEFAULT_SCHEMA=${POSTGRES_DEFAULT_SCHEMA:-}
-      - POSTGRES_USE_NULL_POOL=${POSTGRES_USE_NULL_POOL:-}
-      - POSTGRES_API_SERVER_POOL_SIZE=${POSTGRES_API_SERVER_POOL_SIZE:-}
-      - POSTGRES_API_SERVER_POOL_OVERFLOW=${POSTGRES_API_SERVER_POOL_OVERFLOW:-}
-      - POSTGRES_IDLE_SESSIONS_TIMEOUT=${POSTGRES_IDLE_SESSIONS_TIMEOUT:-}
-      - POSTGRES_POOL_RECYCLE=${POSTGRES_POOL_RECYCLE:-}
-      - VESPA_HOST=index
-      - REDIS_HOST=cache
-      - WEB_DOMAIN=${WEB_DOMAIN:-} # For frontend redirect auth purpose
+      POSTGRES_HOST: relational_db
+      POSTGRES_DEFAULT_SCHEMA: ${POSTGRES_DEFAULT_SCHEMA:-}
+      POSTGRES_USE_NULL_POOL: ${POSTGRES_USE_NULL_POOL:-}
+      POSTGRES_API_SERVER_POOL_SIZE: ${POSTGRES_API_SERVER_POOL_SIZE:-}
+      POSTGRES_API_SERVER_POOL_OVERFLOW: ${POSTGRES_API_SERVER_POOL_OVERFLOW:-}
+      POSTGRES_IDLE_SESSIONS_TIMEOUT: ${POSTGRES_IDLE_SESSIONS_TIMEOUT:-}
+      POSTGRES_POOL_RECYCLE: ${POSTGRES_POOL_RECYCLE:-}
+      VESPA_HOST: index
+      REDIS_HOST: cache
+      WEB_DOMAIN: ${WEB_DOMAIN:-} # For frontend redirect auth purpose
       # MinIO configuration
-      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://minio:9000}
-      - S3_AWS_ACCESS_KEY_ID=${S3_AWS_ACCESS_KEY_ID:-minioadmin}
-      - S3_AWS_SECRET_ACCESS_KEY=${S3_AWS_SECRET_ACCESS_KEY:-minioadmin}
-      - S3_FILE_STORE_BUCKET_NAME=${S3_FILE_STORE_BUCKET_NAME:-}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      S3_AWS_ACCESS_KEY_ID: ${S3_AWS_ACCESS_KEY_ID:-minioadmin}
+      S3_AWS_SECRET_ACCESS_KEY: ${S3_AWS_SECRET_ACCESS_KEY:-minioadmin}
+      S3_FILE_STORE_BUCKET_NAME: ${S3_FILE_STORE_BUCKET_NAME:-}
       # Don't change the NLP model configs unless you know what you're doing
-      - EMBEDDING_BATCH_SIZE=${EMBEDDING_BATCH_SIZE:-}
-      - DOCUMENT_ENCODER_MODEL=${DOCUMENT_ENCODER_MODEL:-}
-      - DOC_EMBEDDING_DIM=${DOC_EMBEDDING_DIM:-}
-      - NORMALIZE_EMBEDDINGS=${NORMALIZE_EMBEDDINGS:-}
-      - ASYM_QUERY_PREFIX=${ASYM_QUERY_PREFIX:-}
-      - DISABLE_RERANK_FOR_STREAMING=${DISABLE_RERANK_FOR_STREAMING:-}
-      - MODEL_SERVER_HOST=${MODEL_SERVER_HOST:-inference_model_server}
-      - MODEL_SERVER_PORT=${MODEL_SERVER_PORT:-}
+      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-}
+      DOCUMENT_ENCODER_MODEL: ${DOCUMENT_ENCODER_MODEL:-}
+      DOC_EMBEDDING_DIM: ${DOC_EMBEDDING_DIM:-}
+      NORMALIZE_EMBEDDINGS: ${NORMALIZE_EMBEDDINGS:-}
+      ASYM_QUERY_PREFIX: ${ASYM_QUERY_PREFIX:-}
+      DISABLE_RERANK_FOR_STREAMING: ${DISABLE_RERANK_FOR_STREAMING:-}
+      MODEL_SERVER_HOST: ${MODEL_SERVER_HOST:-inference_model_server}
+      MODEL_SERVER_PORT: ${MODEL_SERVER_PORT:-}
       # Leave this on pretty please? Nothing sensitive is collected!
-      - DISABLE_TELEMETRY=${DISABLE_TELEMETRY:-}
-      - LOG_LEVEL=${LOG_LEVEL:-info} # Set to debug to get more fine-grained logs
-      - LOG_ALL_MODEL_INTERACTIONS=${LOG_ALL_MODEL_INTERACTIONS:-} # LiteLLM Verbose Logging
+      DISABLE_TELEMETRY: ${DISABLE_TELEMETRY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info} # Set to debug to get more fine-grained logs
+      LOG_ALL_MODEL_INTERACTIONS: ${LOG_ALL_MODEL_INTERACTIONS:-} # LiteLLM Verbose Logging
       # Log all of Onyx prompts and interactions with the LLM
-      - LOG_DANSWER_MODEL_INTERACTIONS=${LOG_DANSWER_MODEL_INTERACTIONS:-}
-      - LOG_INDIVIDUAL_MODEL_TOKENS=${LOG_INDIVIDUAL_MODEL_TOKENS:-}
+      LOG_DANSWER_MODEL_INTERACTIONS: ${LOG_DANSWER_MODEL_INTERACTIONS:-}
+      LOG_INDIVIDUAL_MODEL_TOKENS: ${LOG_INDIVIDUAL_MODEL_TOKENS:-}
       # If set to `true` will enable additional logs about Vespa query performance
       # (time spent on finding the right docs + time spent fetching summaries from disk)
-      - LOG_VESPA_TIMING_INFORMATION=${LOG_VESPA_TIMING_INFORMATION:-}
-      - LOG_ENDPOINT_LATENCY=${LOG_ENDPOINT_LATENCY:-}
-      - LOG_POSTGRES_LATENCY=${LOG_POSTGRES_LATENCY:-}
-      - LOG_POSTGRES_CONN_COUNTS=${LOG_POSTGRES_CONN_COUNTS:-}
-      - CELERY_BROKER_POOL_LIMIT=${CELERY_BROKER_POOL_LIMIT:-}
-      - LITELLM_CUSTOM_ERROR_MESSAGE_MAPPINGS=${LITELLM_CUSTOM_ERROR_MESSAGE_MAPPINGS:-}
+      LOG_VESPA_TIMING_INFORMATION: ${LOG_VESPA_TIMING_INFORMATION:-}
+      LOG_ENDPOINT_LATENCY: ${LOG_ENDPOINT_LATENCY:-}
+      LOG_POSTGRES_LATENCY: ${LOG_POSTGRES_LATENCY:-}
+      LOG_POSTGRES_CONN_COUNTS: ${LOG_POSTGRES_CONN_COUNTS:-}
+      CELERY_BROKER_POOL_LIMIT: ${CELERY_BROKER_POOL_LIMIT:-}
+      LITELLM_CUSTOM_ERROR_MESSAGE_MAPPINGS: ${LITELLM_CUSTOM_ERROR_MESSAGE_MAPPINGS:-}
       # Egnyte OAuth Configs
-      - EGNYTE_CLIENT_ID=${EGNYTE_CLIENT_ID:-}
-      - EGNYTE_CLIENT_SECRET=${EGNYTE_CLIENT_SECRET:-}
-      - EGNYTE_LOCALHOST_OVERRIDE=${EGNYTE_LOCALHOST_OVERRIDE:-}
+      EGNYTE_CLIENT_ID: ${EGNYTE_CLIENT_ID:-}
+      EGNYTE_CLIENT_SECRET: ${EGNYTE_CLIENT_SECRET:-}
+      EGNYTE_LOCALHOST_OVERRIDE: ${EGNYTE_LOCALHOST_OVERRIDE:-}
       # Lienar OAuth Configs
-      - LINEAR_CLIENT_ID=${LINEAR_CLIENT_ID:-}
-      - LINEAR_CLIENT_SECRET=${LINEAR_CLIENT_SECRET:-}
-
+      LINEAR_CLIENT_ID: ${LINEAR_CLIENT_ID:-}
+      LINEAR_CLIENT_SECRET: ${LINEAR_CLIENT_SECRET:-}
       # Demo purposes
-      - MOCK_CONNECTOR_FILE_PATH=${MOCK_CONNECTOR_FILE_PATH:-}
-
+      MOCK_CONNECTOR_FILE_PATH: ${MOCK_CONNECTOR_FILE_PATH:-}
       # Analytics Configs
-      - SENTRY_DSN=${SENTRY_DSN:-}
-
+      SENTRY_DSN: ${SENTRY_DSN:-}
       # Chat Configs
-      - HARD_DELETE_CHATS=${HARD_DELETE_CHATS:-}
-
+      HARD_DELETE_CHATS: ${HARD_DELETE_CHATS:-}
       # Show extra/uncommon connectors
-      - SHOW_EXTRA_CONNECTORS=${SHOW_EXTRA_CONNECTORS:-true}
-
+      SHOW_EXTRA_CONNECTORS: ${SHOW_EXTRA_CONNECTORS:-true}
       # Enables the use of bedrock models or IAM Auth
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-      - AWS_REGION_NAME=${AWS_REGION_NAME:-}
-
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION_NAME: ${AWS_REGION_NAME:-}
       # Enterprise Edition only
-      #- ENABLE_PAID_ENTERPRISE_EDITION_FEATURES=${ENABLE_PAID_ENTERPRISE_EDITION_FEATURES:-false}
-      - API_KEY_HASH_ROUNDS=${API_KEY_HASH_ROUNDS:-}
+      # ENABLE_PAID_ENTERPRISE_EDITION_FEATURES: ${ENABLE_PAID_ENTERPRISE_EDITION_FEATURES:-false}
+      API_KEY_HASH_ROUNDS: ${API_KEY_HASH_ROUNDS:-}
       # Seeding configuration
-      - USE_IAM_AUTH=${USE_IAM_AUTH:-}
-      - ONYX_QUERY_HISTORY_TYPE=${ONYX_QUERY_HISTORY_TYPE:-}
-
+      USE_IAM_AUTH: ${USE_IAM_AUTH:-}
+      ONYX_QUERY_HISTORY_TYPE: ${ONYX_QUERY_HISTORY_TYPE:-}
       # Vespa Language Forcing
       # See: https://docs.vespa.ai/en/linguistics.html
-      - VESPA_LANGUAGE_OVERRIDE=${VESPA_LANGUAGE_OVERRIDE:-}
+      VESPA_LANGUAGE_OVERRIDE: ${VESPA_LANGUAGE_OVERRIDE:-}
 
     # Uncomment the line below to use if IAM_AUTH is true and you are using iam auth for postgres
     # volumes:
@@ -204,6 +239,11 @@ services:
     # optional, only for debugging purposes
     volumes:
       - api_server_logs:/var/log/onyx
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
   background:
     image: onyxdotapp/onyx-backend:${IMAGE_TAG:-latest}
@@ -218,124 +258,133 @@ services:
       /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"
     depends_on:
       - relational_db
+      - opensearch
       - index
       - cache
       - inference_model_server
       - indexing_model_server
     restart: unless-stopped
+#    networks:
+#      - opensearch-net
+#      - default
     environment:
-      - USE_SEPARATE_BACKGROUND_WORKERS=true
-      - USE_LIGHTWEIGHT_BACKGROUND_WORKER=true
-      - ENCRYPTION_KEY_SECRET=${ENCRYPTION_KEY_SECRET:-}
-      - JWT_PUBLIC_KEY_URL=${JWT_PUBLIC_KEY_URL:-} # used for JWT authentication of users via API
+      OPENSEARCH_HOST: opensearch
+      OPENSEARCH_PORT: 9200
+      OPENSEARCH_ADMIN_USERNAME: "admin"
+      OPENSEARCH_ADMIN_PASSWORD: "Zadara-Demo-2026"
+      #OPENSEARCH_URL: "https://admin:Zadara-Demo-2026@opensearch:9200"
+      #OPENSEARCH_USE_SSL: true
+      OPENSEARCH_VERIFY_CERTS: false
+      USE_SEPARATE_BACKGROUND_WORKERS: "true"
+      USE_LIGHTWEIGHT_BACKGROUND_WORKER: "true"
+      ENCRYPTION_KEY_SECRET: ${ENCRYPTION_KEY_SECRET:-}
+      JWT_PUBLIC_KEY_URL: ${JWT_PUBLIC_KEY_URL:-} # used for JWT authentication of users via API
       # Gen AI Settings (Needed by OnyxBot)
-      - GEN_AI_MAX_TOKENS=${GEN_AI_MAX_TOKENS:-}
-      - QA_TIMEOUT=${QA_TIMEOUT:-}
-      - MAX_CHUNKS_FED_TO_CHAT=${MAX_CHUNKS_FED_TO_CHAT:-}
-      - DISABLE_LLM_CHOOSE_SEARCH=${DISABLE_LLM_CHOOSE_SEARCH:-}
-      - DISABLE_LLM_QUERY_REPHRASE=${DISABLE_LLM_QUERY_REPHRASE:-}
-      - DISABLE_GENERATIVE_AI=${DISABLE_GENERATIVE_AI:-}
-      - GENERATIVE_MODEL_ACCESS_CHECK_FREQ=${GENERATIVE_MODEL_ACCESS_CHECK_FREQ:-}
-      - DISABLE_LITELLM_STREAMING=${DISABLE_LITELLM_STREAMING:-}
-      - LITELLM_EXTRA_HEADERS=${LITELLM_EXTRA_HEADERS:-}
-      - GEN_AI_API_KEY=${GEN_AI_API_KEY:-}
-      - BING_API_KEY=${BING_API_KEY:-}
-      - EXA_API_KEY=${EXA_API_KEY:-}
+      GEN_AI_MAX_TOKENS: ${GEN_AI_MAX_TOKENS:-}
+      QA_TIMEOUT: ${QA_TIMEOUT:-}
+      MAX_CHUNKS_FED_TO_CHAT: ${MAX_CHUNKS_FED_TO_CHAT:-}
+      DISABLE_LLM_CHOOSE_SEARCH: ${DISABLE_LLM_CHOOSE_SEARCH:-}
+      DISABLE_LLM_QUERY_REPHRASE: ${DISABLE_LLM_QUERY_REPHRASE:-}
+      DISABLE_GENERATIVE_AI: ${DISABLE_GENERATIVE_AI:-}
+      GENERATIVE_MODEL_ACCESS_CHECK_FREQ: ${GENERATIVE_MODEL_ACCESS_CHECK_FREQ:-}
+      DISABLE_LITELLM_STREAMING: ${DISABLE_LITELLM_STREAMING:-}
+      LITELLM_EXTRA_HEADERS: ${LITELLM_EXTRA_HEADERS:-}
+      GEN_AI_API_KEY: ${GEN_AI_API_KEY:-}
+      BING_API_KEY: ${BING_API_KEY:-}
+      EXA_API_KEY: ${EXA_API_KEY:-}
       # Query Options
-      - DOC_TIME_DECAY=${DOC_TIME_DECAY:-} # Recency Bias for search results, decay at 1 / (1 + DOC_TIME_DECAY * x years)
-      - HYBRID_ALPHA=${HYBRID_ALPHA:-} # Hybrid Search Alpha (0 for entirely keyword, 1 for entirely vector)
-      - EDIT_KEYWORD_QUERY=${EDIT_KEYWORD_QUERY:-}
-      - MULTILINGUAL_QUERY_EXPANSION=${MULTILINGUAL_QUERY_EXPANSION:-}
-      - LANGUAGE_HINT=${LANGUAGE_HINT:-}
-      - LANGUAGE_CHAT_NAMING_HINT=${LANGUAGE_CHAT_NAMING_HINT:-}
-      - QA_PROMPT_OVERRIDE=${QA_PROMPT_OVERRIDE:-}
+      DOC_TIME_DECAY: ${DOC_TIME_DECAY:-} # Recency Bias for search results, decay at 1 / (1 + DOC_TIME_DECAY * x years)
+      HYBRID_ALPHA: ${HYBRID_ALPHA:-} # Hybrid Search Alpha (0 for entirely keyword, 1 for entirely vector)
+      EDIT_KEYWORD_QUERY: ${EDIT_KEYWORD_QUERY:-}
+      MULTILINGUAL_QUERY_EXPANSION: ${MULTILINGUAL_QUERY_EXPANSION:-}
+      LANGUAGE_HINT: ${LANGUAGE_HINT:-}
+      LANGUAGE_CHAT_NAMING_HINT: ${LANGUAGE_CHAT_NAMING_HINT:-}
+      QA_PROMPT_OVERRIDE: ${QA_PROMPT_OVERRIDE:-}
       # Other Services
-      - POSTGRES_HOST=relational_db
-      - POSTGRES_USER=${POSTGRES_USER:-}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
-      - DB_READONLY_USER=${DB_READONLY_USER:-}
-      - DB_READONLY_PASSWORD=${DB_READONLY_PASSWORD:-}
-      - POSTGRES_DB=${POSTGRES_DB:-}
-      - POSTGRES_DEFAULT_SCHEMA=${POSTGRES_DEFAULT_SCHEMA:-}
-      - POSTGRES_USE_NULL_POOL=${POSTGRES_USE_NULL_POOL:-}
-      - VESPA_HOST=index
-      - REDIS_HOST=cache
-      - WEB_DOMAIN=${WEB_DOMAIN:-} # For frontend redirect auth purpose for OAuth2 connectors
+      POSTGRES_HOST: relational_db
+      POSTGRES_USER: ${POSTGRES_USER:-}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      DB_READONLY_USER: ${DB_READONLY_USER:-}
+      DB_READONLY_PASSWORD: ${DB_READONLY_PASSWORD:-}
+      POSTGRES_DB: ${POSTGRES_DB:-}
+      POSTGRES_DEFAULT_SCHEMA: ${POSTGRES_DEFAULT_SCHEMA:-}
+      POSTGRES_USE_NULL_POOL: ${POSTGRES_USE_NULL_POOL:-}
+      VESPA_HOST: index
+      REDIS_HOST: cache
+      WEB_DOMAIN: ${WEB_DOMAIN:-} # For frontend redirect auth purpose for OAuth2 connectors
       # MinIO configuration
-      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://minio:9000}
-      - S3_AWS_ACCESS_KEY_ID=${S3_AWS_ACCESS_KEY_ID:-minioadmin}
-      - S3_AWS_SECRET_ACCESS_KEY=${S3_AWS_SECRET_ACCESS_KEY:-minioadmin}
-      - S3_FILE_STORE_BUCKET_NAME=${S3_FILE_STORE_BUCKET_NAME:-}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      S3_AWS_ACCESS_KEY_ID: ${S3_AWS_ACCESS_KEY_ID:-minioadmin}
+      S3_AWS_SECRET_ACCESS_KEY: ${S3_AWS_SECRET_ACCESS_KEY:-minioadmin}
+      S3_FILE_STORE_BUCKET_NAME: ${S3_FILE_STORE_BUCKET_NAME:-}
       # Don't change the NLP model configs unless you know what you're doing
-      - DOCUMENT_ENCODER_MODEL=${DOCUMENT_ENCODER_MODEL:-}
-      - DOC_EMBEDDING_DIM=${DOC_EMBEDDING_DIM:-}
-      - NORMALIZE_EMBEDDINGS=${NORMALIZE_EMBEDDINGS:-}
-      - ASYM_QUERY_PREFIX=${ASYM_QUERY_PREFIX:-} # Needed by OnyxBot
-      - ASYM_PASSAGE_PREFIX=${ASYM_PASSAGE_PREFIX:-}
-      - MODEL_SERVER_HOST=${MODEL_SERVER_HOST:-inference_model_server}
-      - MODEL_SERVER_PORT=${MODEL_SERVER_PORT:-}
-      - INDEXING_MODEL_SERVER_HOST=${INDEXING_MODEL_SERVER_HOST:-indexing_model_server}
+      DOCUMENT_ENCODER_MODEL: ${DOCUMENT_ENCODER_MODEL:-}
+      DOC_EMBEDDING_DIM: ${DOC_EMBEDDING_DIM:-}
+      NORMALIZE_EMBEDDINGS: ${NORMALIZE_EMBEDDINGS:-}
+      ASYM_QUERY_PREFIX: ${ASYM_QUERY_PREFIX:-} # Needed by OnyxBot
+      ASYM_PASSAGE_PREFIX: ${ASYM_PASSAGE_PREFIX:-}
+      MODEL_SERVER_HOST: ${MODEL_SERVER_HOST:-inference_model_server}
+      MODEL_SERVER_PORT: ${MODEL_SERVER_PORT:-}
+      INDEXING_MODEL_SERVER_HOST: ${INDEXING_MODEL_SERVER_HOST:-indexing_model_server}
       # Indexing Configs
-      - VESPA_SEARCHER_THREADS=${VESPA_SEARCHER_THREADS:-}
-      - ENABLED_CONNECTOR_TYPES=${ENABLED_CONNECTOR_TYPES:-}
-      - DISABLE_INDEX_UPDATE_ON_SWAP=${DISABLE_INDEX_UPDATE_ON_SWAP:-}
-      - DASK_JOB_CLIENT_ENABLED=${DASK_JOB_CLIENT_ENABLED:-}
-      - CONTINUE_ON_CONNECTOR_FAILURE=${CONTINUE_ON_CONNECTOR_FAILURE:-}
-      - EXPERIMENTAL_CHECKPOINTING_ENABLED=${EXPERIMENTAL_CHECKPOINTING_ENABLED:-}
-      - CONFLUENCE_CONNECTOR_LABELS_TO_SKIP=${CONFLUENCE_CONNECTOR_LABELS_TO_SKIP:-}
-      - JIRA_CONNECTOR_LABELS_TO_SKIP=${JIRA_CONNECTOR_LABELS_TO_SKIP:-}
-      - WEB_CONNECTOR_VALIDATE_URLS=${WEB_CONNECTOR_VALIDATE_URLS:-}
-      - JIRA_SERVER_API_VERSION=${JIRA_SERVER_API_VERSION:-}
-      - JIRA_CLOUD_API_VERSION=${JIRA_CLOUD_API_VERSION:-}
-      - GONG_CONNECTOR_START_TIME=${GONG_CONNECTOR_START_TIME:-}
-      - NOTION_CONNECTOR_ENABLE_RECURSIVE_PAGE_LOOKUP=${NOTION_CONNECTOR_ENABLE_RECURSIVE_PAGE_LOOKUP:-}
-      - GITHUB_CONNECTOR_BASE_URL=${GITHUB_CONNECTOR_BASE_URL:-}
-      - MAX_DOCUMENT_CHARS=${MAX_DOCUMENT_CHARS:-}
-      - MAX_FILE_SIZE_BYTES=${MAX_FILE_SIZE_BYTES:-}
+      VESPA_SEARCHER_THREADS: ${VESPA_SEARCHER_THREADS:-}
+      ENABLED_CONNECTOR_TYPES: ${ENABLED_CONNECTOR_TYPES:-}
+      DISABLE_INDEX_UPDATE_ON_SWAP: ${DISABLE_INDEX_UPDATE_ON_SWAP:-}
+      DASK_JOB_CLIENT_ENABLED: ${DASK_JOB_CLIENT_ENABLED:-}
+      CONTINUE_ON_CONNECTOR_FAILURE: ${CONTINUE_ON_CONNECTOR_FAILURE:-}
+      EXPERIMENTAL_CHECKPOINTING_ENABLED: ${EXPERIMENTAL_CHECKPOINTING_ENABLED:-}
+      CONFLUENCE_CONNECTOR_LABELS_TO_SKIP: ${CONFLUENCE_CONNECTOR_LABELS_TO_SKIP:-}
+      JIRA_CONNECTOR_LABELS_TO_SKIP: ${JIRA_CONNECTOR_LABELS_TO_SKIP:-}
+      WEB_CONNECTOR_VALIDATE_URLS: ${WEB_CONNECTOR_VALIDATE_URLS:-}
+      JIRA_SERVER_API_VERSION: ${JIRA_SERVER_API_VERSION:-}
+      JIRA_CLOUD_API_VERSION: ${JIRA_CLOUD_API_VERSION:-}
+      GONG_CONNECTOR_START_TIME: ${GONG_CONNECTOR_START_TIME:-}
+      NOTION_CONNECTOR_ENABLE_RECURSIVE_PAGE_LOOKUP: ${NOTION_CONNECTOR_ENABLE_RECURSIVE_PAGE_LOOKUP:-}
+      GITHUB_CONNECTOR_BASE_URL: ${GITHUB_CONNECTOR_BASE_URL:-}
+      MAX_DOCUMENT_CHARS: ${MAX_DOCUMENT_CHARS:-}
+      MAX_FILE_SIZE_BYTES: ${MAX_FILE_SIZE_BYTES:-}
       # Egnyte OAuth Configs
-      - EGNYTE_CLIENT_ID=${EGNYTE_CLIENT_ID:-}
-      - EGNYTE_CLIENT_SECRET=${EGNYTE_CLIENT_SECRET:-}
-      - EGNYTE_LOCALHOST_OVERRIDE=${EGNYTE_LOCALHOST_OVERRIDE:-}
+      EGNYTE_CLIENT_ID: ${EGNYTE_CLIENT_ID:-}
+      EGNYTE_CLIENT_SECRET: ${EGNYTE_CLIENT_SECRET:-}
+      EGNYTE_LOCALHOST_OVERRIDE: ${EGNYTE_LOCALHOST_OVERRIDE:-}
       # Lienar OAuth Configs
-      - LINEAR_CLIENT_ID=${LINEAR_CLIENT_ID:-}
-      - LINEAR_CLIENT_SECRET=${LINEAR_CLIENT_SECRET:-}
+      LINEAR_CLIENT_ID: ${LINEAR_CLIENT_ID:-}
+      LINEAR_CLIENT_SECRET: ${LINEAR_CLIENT_SECRET:-}
       # Celery Configs (defaults are set in the supervisord.conf file.
       # prefer doing that to have one source of defaults)
-      - CELERY_WORKER_DOCFETCHING_CONCURRENCY=${CELERY_WORKER_DOCFETCHING_CONCURRENCY:-}
-      - CELERY_WORKER_DOCPROCESSING_CONCURRENCY=${CELERY_WORKER_DOCPROCESSING_CONCURRENCY:-}
-      - CELERY_WORKER_LIGHT_CONCURRENCY=${CELERY_WORKER_LIGHT_CONCURRENCY:-}
-      - CELERY_WORKER_LIGHT_PREFETCH_MULTIPLIER=${CELERY_WORKER_LIGHT_PREFETCH_MULTIPLIER:-}
-
+      CELERY_WORKER_DOCFETCHING_CONCURRENCY: ${CELERY_WORKER_DOCFETCHING_CONCURRENCY:-}
+      CELERY_WORKER_DOCPROCESSING_CONCURRENCY: ${CELERY_WORKER_DOCPROCESSING_CONCURRENCY:-}
+      CELERY_WORKER_LIGHT_CONCURRENCY: ${CELERY_WORKER_LIGHT_CONCURRENCY:-}
+      CELERY_WORKER_LIGHT_PREFETCH_MULTIPLIER: ${CELERY_WORKER_LIGHT_PREFETCH_MULTIPLIER:-}
       # Onyx SlackBot Configs
-      - DANSWER_BOT_DISABLE_DOCS_ONLY_ANSWER=${DANSWER_BOT_DISABLE_DOCS_ONLY_ANSWER:-}
-      - DANSWER_BOT_FEEDBACK_VISIBILITY=${DANSWER_BOT_FEEDBACK_VISIBILITY:-}
-      - DANSWER_BOT_DISPLAY_ERROR_MSGS=${DANSWER_BOT_DISPLAY_ERROR_MSGS:-}
-      - DANSWER_BOT_RESPOND_EVERY_CHANNEL=${DANSWER_BOT_RESPOND_EVERY_CHANNEL:-}
-      - DANSWER_BOT_DISABLE_COT=${DANSWER_BOT_DISABLE_COT:-} # Currently unused
-      - NOTIFY_SLACKBOT_NO_ANSWER=${NOTIFY_SLACKBOT_NO_ANSWER:-}
-      - DANSWER_BOT_MAX_QPM=${DANSWER_BOT_MAX_QPM:-}
-      - DANSWER_BOT_MAX_WAIT_TIME=${DANSWER_BOT_MAX_WAIT_TIME:-}
+      DANSWER_BOT_DISABLE_DOCS_ONLY_ANSWER: ${DANSWER_BOT_DISABLE_DOCS_ONLY_ANSWER:-}
+      DANSWER_BOT_FEEDBACK_VISIBILITY: ${DANSWER_BOT_FEEDBACK_VISIBILITY:-}
+      DANSWER_BOT_DISPLAY_ERROR_MSGS: ${DANSWER_BOT_DISPLAY_ERROR_MSGS:-}
+      DANSWER_BOT_RESPOND_EVERY_CHANNEL: ${DANSWER_BOT_RESPOND_EVERY_CHANNEL:-}
+      DANSWER_BOT_DISABLE_COT: ${DANSWER_BOT_DISABLE_COT:-} # Currently unused
+      NOTIFY_SLACKBOT_NO_ANSWER: ${NOTIFY_SLACKBOT_NO_ANSWER:-}
+      DANSWER_BOT_MAX_QPM: ${DANSWER_BOT_MAX_QPM:-}
+      DANSWER_BOT_MAX_WAIT_TIME: ${DANSWER_BOT_MAX_WAIT_TIME:-}
       # Logging
       # Leave this on pretty please? Nothing sensitive is collected!
-      - DISABLE_TELEMETRY=${DISABLE_TELEMETRY:-}
-      - LOG_LEVEL=${LOG_LEVEL:-info} # Set to debug to get more fine-grained logs
-      - LOG_ALL_MODEL_INTERACTIONS=${LOG_ALL_MODEL_INTERACTIONS:-} # LiteLLM Verbose Logging
+      DISABLE_TELEMETRY: ${DISABLE_TELEMETRY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info} # Set to debug to get more fine-grained logs
+      LOG_ALL_MODEL_INTERACTIONS: ${LOG_ALL_MODEL_INTERACTIONS:-} # LiteLLM Verbose Logging
       # Log all of Onyx prompts and interactions with the LLM
-      - LOG_DANSWER_MODEL_INTERACTIONS=${LOG_DANSWER_MODEL_INTERACTIONS:-}
-      - LOG_INDIVIDUAL_MODEL_TOKENS=${LOG_INDIVIDUAL_MODEL_TOKENS:-}
-      - LOG_VESPA_TIMING_INFORMATION=${LOG_VESPA_TIMING_INFORMATION:-}
-
+      LOG_DANSWER_MODEL_INTERACTIONS: ${LOG_DANSWER_MODEL_INTERACTIONS:-}
+      LOG_INDIVIDUAL_MODEL_TOKENS: ${LOG_INDIVIDUAL_MODEL_TOKENS:-}
+      LOG_VESPA_TIMING_INFORMATION: ${LOG_VESPA_TIMING_INFORMATION:-}
       # Analytics Configs
-      - SENTRY_DSN=${SENTRY_DSN:-}
-
+      SENTRY_DSN: ${SENTRY_DSN:-}
       # Enterprise Edition stuff
-      - ENABLE_PAID_ENTERPRISE_EDITION_FEATURES=${ENABLE_PAID_ENTERPRISE_EDITION_FEATURES:-false}
-      - USE_IAM_AUTH=${USE_IAM_AUTH:-}
-      - AWS_REGION_NAME=${AWS_REGION_NAME:-}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY-}
+      ENABLE_PAID_ENTERPRISE_EDITION_FEATURES: ${ENABLE_PAID_ENTERPRISE_EDITION_FEATURES:-false}
+      USE_IAM_AUTH: ${USE_IAM_AUTH:-}
+      AWS_REGION_NAME: ${AWS_REGION_NAME:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY-}
       # primarily for testing
-      - CHECK_TTL_MANAGEMENT_TASK_FREQUENCY_IN_HOURS=${CHECK_TTL_MANAGEMENT_TASK_FREQUENCY_IN_HOURS:-}
+      CHECK_TTL_MANAGEMENT_TASK_FREQUENCY_IN_HOURS: ${CHECK_TTL_MANAGEMENT_TASK_FREQUENCY_IN_HOURS:-}
+
     # Uncomment the line below to use if IAM_AUTH is true and you are using iam auth for postgres
     # volumes:
     #   - ./bundle.pem:/app/bundle.pem:ro
@@ -381,17 +430,19 @@ services:
       - api_server
     restart: unless-stopped
     environment:
-      - INTERNAL_URL=http://api_server:8080
-      - WEB_DOMAIN=${WEB_DOMAIN:-}
-      - THEME_IS_DARK=${THEME_IS_DARK:-}
-      - DISABLE_LLM_DOC_RELEVANCE=${DISABLE_LLM_DOC_RELEVANCE:-}
-      - ENABLE_PAID_ENTERPRISE_EDITION_FEATURES=${ENABLE_PAID_ENTERPRISE_EDITION_FEATURES:-false}
-      - NEXT_PUBLIC_CUSTOM_REFRESH_URL=${NEXT_PUBLIC_CUSTOM_REFRESH_URL:-}
+      INTERNAL_URL: http://api_server:8080
+      WEB_DOMAIN: ${WEB_DOMAIN:-}
+      THEME_IS_DARK: ${THEME_IS_DARK:-}
+      DISABLE_LLM_DOC_RELEVANCE: ${DISABLE_LLM_DOC_RELEVANCE:-}
+      ENABLE_PAID_ENTERPRISE_EDITION_FEATURES: ${ENABLE_PAID_ENTERPRISE_EDITION_FEATURES:-false}
+      NEXT_PUBLIC_CUSTOM_REFRESH_URL: ${NEXT_PUBLIC_CUSTOM_REFRESH_URL:-}
     ports:
       - "3001:3000"
-
-
-      # Enterprise Edition only
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
   inference_model_server:
     image: onyxdotapp/onyx-model-server:${IMAGE_TAG:-latest}
@@ -407,12 +458,11 @@ services:
       fi"
     restart: unless-stopped
     environment:
-      - MIN_THREADS_ML_MODELS=${MIN_THREADS_ML_MODELS:-}
+      MIN_THREADS_ML_MODELS: ${MIN_THREADS_ML_MODELS:-}
       # Set to debug to get more fine-grained logs
-      - LOG_LEVEL=${LOG_LEVEL:-info}
-
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       # Analytics Configs
-      - SENTRY_DSN=${SENTRY_DSN:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
     volumes:
       # Not necessary, this is just to reduce download time during startup
       - model_cache_huggingface:/app/.cache/huggingface/
@@ -438,15 +488,14 @@ services:
       fi"
     restart: unless-stopped
     environment:
-      - INDEX_BATCH_SIZE=${INDEX_BATCH_SIZE:-}
-      - MIN_THREADS_ML_MODELS=${MIN_THREADS_ML_MODELS:-}
-      - INDEXING_ONLY=True
+      INDEX_BATCH_SIZE: ${INDEX_BATCH_SIZE:-}
+      MIN_THREADS_ML_MODELS: ${MIN_THREADS_ML_MODELS:-}
+      INDEXING_ONLY: "True"
       # Set to debug to get more fine-grained logs
-      - LOG_LEVEL=${LOG_LEVEL:-info}
-      - CLIENT_EMBEDDING_TIMEOUT=${CLIENT_EMBEDDING_TIMEOUT:-}
-
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CLIENT_EMBEDDING_TIMEOUT: ${CLIENT_EMBEDDING_TIMEOUT:-}
       # Analytics Configs
-      - SENTRY_DSN=${SENTRY_DSN:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
     volumes:
       # Not necessary, this is just to reduce download time during startup
       - indexing_huggingface_model_cache:/app/.cache/huggingface/
@@ -464,10 +513,10 @@ services:
     command: -c 'max_connections=250'
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
-      - DB_READONLY_USER=${DB_READONLY_USER:-}
-      - DB_READONLY_PASSWORD=${DB_READONLY_PASSWORD:-}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      DB_READONLY_USER: ${DB_READONLY_USER:-}
+      DB_READONLY_PASSWORD: ${DB_READONLY_PASSWORD:-}
     ports:
       - "5432:5432"
     volumes:
@@ -478,7 +527,7 @@ services:
     image: vespaengine/vespa:8.526.15
     restart: unless-stopped
     environment:
-      - VESPA_SKIP_UPGRADE_CHECK=true
+      VESPA_SKIP_UPGRADE_CHECK: "true"
     ports:
       - "19071:19071"
       - "8081:8081"
@@ -499,7 +548,7 @@ services:
       - api_server
       - web_server
     environment:
-      - DOMAIN=localhost
+      DOMAIN: localhost
     ports:
       - "80:80"
       - "3000:80" # allow for localhost:3000 usage, since that is the norm
@@ -560,3 +609,4 @@ volumes:
   background_logs:
   inference_model_server_logs:
   indexing_model_server_logs:
+  opensearch_data:
