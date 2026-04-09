@@ -1,9 +1,5 @@
 version: "3.9"
 
-#networks:
-#  opensearch-net:
-#    driver: bridge
-
 services:
   opensearch:
     image: opensearchproject/opensearch:latest
@@ -22,9 +18,6 @@ services:
     volumes:
       - opensearch_data:/usr/share/opensearch/data
     restart: unless-stopped
-#    networks:
-#      - opensearch-net
-#      - default
 
   ollama:
     image: ollama/ollama:latest
@@ -92,16 +85,11 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
-#    networks:
-#      - opensearch-net
-#      - default
     environment:
       OPENSEARCH_HOST: opensearch
       OPENSEARCH_PORT: 9200
       OPENSEARCH_ADMIN_USERNAME: "admin"
       OPENSEARCH_ADMIN_PASSWORD: "Zadara-Demo-2026"
-      #OPENSEARCH_URL: "https://admin:Zadara-Demo-2026@opensearch:9200"
-      #OPENSEARCH_USE_SSL: true
       OPENSEARCH_VERIFY_CERTS: false
       # Auth Settings
       AUTH_TYPE: basic
@@ -231,11 +219,6 @@ services:
     # optional, only for debugging purposes
     volumes:
       - api_server_logs:/var/log/onyx
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
 
   background:
     image: onyxdotapp/onyx-backend:${IMAGE_TAG:-latest}
@@ -256,16 +239,11 @@ services:
       - inference_model_server
       - indexing_model_server
     restart: unless-stopped
-#    networks:
-#      - opensearch-net
-#      - default
     environment:
       OPENSEARCH_HOST: opensearch
       OPENSEARCH_PORT: 9200
       OPENSEARCH_ADMIN_USERNAME: "admin"
       OPENSEARCH_ADMIN_PASSWORD: "Zadara-Demo-2026"
-      #OPENSEARCH_URL: "https://admin:Zadara-Demo-2026@opensearch:9200"
-      #OPENSEARCH_USE_SSL: true
       OPENSEARCH_VERIFY_CERTS: false
       USE_SEPARATE_BACKGROUND_WORKERS: "true"
       USE_LIGHTWEIGHT_BACKGROUND_WORKER: "true"
@@ -430,11 +408,6 @@ services:
       NEXT_PUBLIC_CUSTOM_REFRESH_URL: ${NEXT_PUBLIC_CUSTOM_REFRESH_URL:-}
     ports:
       - "3001:3000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
 
   inference_model_server:
     image: onyxdotapp/onyx-model-server:${IMAGE_TAG:-latest}
