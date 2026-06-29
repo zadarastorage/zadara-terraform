@@ -13,7 +13,7 @@ You must install Ansible before you run the script > brew install ansible
 Please make sure your ssh private key is not too open 600 is ok and add you ssh key to the ssh cache with ssh-add ~/.ssh/id_rsa
 
 ## Run the Script
-This Example used the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+This Example used the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/3.33.0/docs
 
 After you have adjust the variable.tf file you must run the following command
 - terraform init

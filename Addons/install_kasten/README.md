@@ -1,6 +1,6 @@
 # Install Kasten K10 by Veeam Addon
 
-All use the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+All use the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/3.33.0/docs
 
 Update the install_k10.tf file with our password. It will be stored encrypted ( via htpasswd) in a secret. 
 You must run the following command in the install_kasten folder

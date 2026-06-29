@@ -1,6 +1,6 @@
 # install Zadara CSI Operator Addon
 
-All use the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+All use the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/3.33.0/docs
 The complete CSI documentation can you find under https://github.com/zadarastorage/zadara-csi
 
 ## The installation and configuration is splitted in 2 parts.

@@ -7,7 +7,7 @@ Each Webserver has a static Webpage which provide the hostname of the correspond
 To prepare the script with your credential and variables, update the variable.tf Script
 
 ## Run the Script
-This Example used the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+This Example used the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/3.33.0/docs
 
 After you have adjust the variable.tf file you must run the following command
 - terraform init

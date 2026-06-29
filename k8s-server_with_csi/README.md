@@ -13,7 +13,7 @@ Please make sure that you have a public subnet and a direct subnet (for the stor
 Connection between the instances must make etablished. Check your security group!
 
 ## Run the Script
-This Example used the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+This Example used the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/3.33.0/docs
 
 After you have adjust the variable.tf file you must run the following command
 - terraform init

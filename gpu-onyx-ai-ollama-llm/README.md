@@ -28,7 +28,7 @@ Configure the following lines with the details obtained from within your zComput
 
 
 ## Run Terraform
-This example uses the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+This example uses the official Hashicorp AWS Provider https://registry.terraform.io/providers/hashicorp/aws/3.33.0/docs
 
 After reconfiguring the variables.tf and network.tf files run the following commands to prepare and build the environment:
 - terraform init
